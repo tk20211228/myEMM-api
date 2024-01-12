@@ -1,0 +1,4 @@
+node_modules/
+.env
+emm-test-20230624-c0cd1c3d2ff3.json
+serviceAccountKey.json
