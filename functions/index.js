@@ -10,7 +10,6 @@ const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: "https://myemm-c8ee7-default-rtdb.asia-southeast1.firebasedatabase.app"
 });
 
 const printMemoryUsage = require("./middleware/printMemoryUsage");
