@@ -14,6 +14,7 @@ admin.initializeApp({
 
 const printMemoryUsage = require("./middleware/printMemoryUsage");
 const app = express();
+
 app.use(corsSettings);
 
 
