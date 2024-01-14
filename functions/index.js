@@ -19,8 +19,8 @@ const app = express();
 app.use(corsSettings);
 
 
-// const checkAuth = require("./middleware/checkAuth");
-// app.use(checkAuth);
+const checkAuth = require("./middleware/checkAuth");
+app.use(checkAuth);
 
 const announcementRouter = require("./routes/announcements");
 app.use("/announcements", printMemoryUsage, announcementRouter);
