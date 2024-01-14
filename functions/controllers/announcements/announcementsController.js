@@ -50,13 +50,13 @@ exports.createAnnouncement = async (req, res, next) => {
     let data = {
       title,
       body,
-      author,
+      uid: author,
       createdAt,
       updatedAt,
     };
-
     const createdAnnouncement = await addDocFirestore(collectionName,data);
-    addDetailLog({req, collectionName, docId:createdAnnouncement.docId, actionName, data});
+    const docId = createdAnnouncement.docId;
+    addDetailLog({req, collectionName, docId, actionName, data});
     await announcementNotification(req,createdAnnouncement);
     res.json({
       announcement: "Called by the POST method",
@@ -69,7 +69,7 @@ exports.createAnnouncement = async (req, res, next) => {
     res.status(500).json({
       error: "Something went wrong. Please try again later.",
     });
-    addDetailLog({req, collectionName, docId:createdAnnouncement.docId, actionName, data, error});
+    addDetailLog({req, collectionName, docId, actionName, error});
     next(); // エラーハンドリング用のミドルウェアにエラーを渡す
   }
 };
@@ -91,6 +91,7 @@ exports.updateAnnouncement = async (req, res) => {
 
       res.json({
         announcement: `Uqdated!!. ID:${id}`,
+        data: updateAnnouncement,
       });
       next();
     } catch (error) {
@@ -107,10 +108,11 @@ exports.deleteAnnouncement = async (req, res) => {
     const {docId} = req.body;
     const actionName = "deleteAnnouncement";
     try {
-      await db.collection(collectionName).doc(docId).delete();
+      const deleteAnnouncement = await deleteDocFirestore(collectionName,docId);
       addDetailLog({req, collectionName, docId, actionName});
       res.json({
         announcement: `DELETE!!. ID:${id}`,
+        data: deleteAnnouncement,
       });
       next();
     } catch (error) {

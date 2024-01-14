@@ -22,7 +22,7 @@ exports.message = async (req, res, next) => {
       prevData: "",
       message,
     };
-    console.log(detailLog);
+    console.log(message);
 
     req.detailLogs = [detailLog];
 

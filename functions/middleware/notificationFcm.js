@@ -1,15 +1,15 @@
 const admin = require("firebase-admin");
-const db = admin.firestore();
 const { getFsBoolDocs } = require("../models/firestoreModel");
 const collectionName = "fcmTokens";
 
 
 exports.announcementNotification = async (req,createdAnnouncement) => {
   try {
-    const postData = {
+    const data = {
       title : createdAnnouncement.title,
       body : createdAnnouncement.body,
       url: "/information",
+      uid : createdAnnouncement.uid,
     }
     const fcmList = [];
     
@@ -22,13 +22,17 @@ exports.announcementNotification = async (req,createdAnnouncement) => {
       
     const messages = fcmList.map((token) => ({
       token,
-      postData,
+      data,
     }));
+
+    // console.log(messages);
 
     admin
       .messaging()
       .sendEach(messages)
-      .then((response) => {})
+      .then((response) => {
+        // console.log(response)
+      })
       .catch((error) => {
         console.log("error", error);
       });
@@ -38,6 +42,7 @@ exports.announcementNotification = async (req,createdAnnouncement) => {
         docId: !(fcmList.length === 0) ? fcmList : null,
         actionName: "notification",
         nextData: postData ? postData : null,
+        uid : createdAnnouncement.uid,
       };
       req.detailLogs = [...req.detailLogs, detailLog];
 
