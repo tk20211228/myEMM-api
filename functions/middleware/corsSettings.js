@@ -1,5 +1,5 @@
 const cors = require("cors");
-const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",");
+const { allowedOrigins } = require('../config');
 
 const corsOptions = {
   origin: function (origin, callback) {

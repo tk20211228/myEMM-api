@@ -4,16 +4,12 @@ const { Timestamp, FieldValue } = require("firebase-admin/firestore");
 // const now = Timestamp.now();
 const { addDocFirestore, updateDocFirestore, deleteDocFirestore } = require("../../models/firestoreModel");
 const { announcementNotification } = require("../../middleware/notificationFcm");
+const { generateDetailLog } = require('../../utils/logUtils');
 const collectionName = "announcements";
 
-  function addDetailLog({req, collectionName, docId, actionName, data, error}) {
-  const detailLog = {
-    collectionName: collectionName || null,
-    docId: docId || null,
-    actionName: actionName || null,
-    nextData: data || null,
-    error: error ? JSON.stringify(error) : null,
-  };
+function addDetailLog({req, actionName, collectionName, docId, data, error}) {
+  const nextData = data;
+  const detailLog = generateDetailLog({ actionName , collectionName , docId , nextData , error });
   req.detailLogs = [detailLog];
 }
 
@@ -50,7 +46,8 @@ exports.createAnnouncement = async (req, res, next) => {
     let data = {
       title,
       body,
-      uid: author,
+      // uid: author,
+      author,
       createdAt,
       updatedAt,
     };

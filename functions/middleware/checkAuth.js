@@ -11,6 +11,7 @@ async function checkAuth(req, res, next) {
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     req.user = decodedToken;
+    // console.log("req.user",req.user.uid)
     next();
   } catch (error) {
     res.status(401).send("Unauthorized");
