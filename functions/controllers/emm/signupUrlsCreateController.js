@@ -1,26 +1,29 @@
-const { Timestamp, FieldValue } = require("firebase-admin/firestore");
+const { Timestamp } = require("firebase-admin/firestore");
 const { google } = require("googleapis");
 const androidManagement = google.androidmanagement("v1");
 const admin = require("firebase-admin");
 const db = admin.firestore();
 const { generateAuthClient } = require("./emmUtils");
+const { generateDetailLog } = require('../../utils/logUtils');
+const { callbackUrl ,googleEmmProjectId} = require('../../config');
+
 
 const generateResponse = async (authClient) => {
+  console.log(callbackUrl ,googleEmmProjectId)
   google.options({ auth: authClient });
   const res = await androidManagement.signupUrls.create({
-    callbackUrl: process.env.GOOGLE_EMM_SIGNUP_CALLBACK_URL,
-    projectId: process.env.GOOGLE_EMM_PROJECT_ID,
+    callbackUrl,
+    projectId: googleEmmProjectId,
   });
   return res;
 };
 
-const recordSignupUrlsName = async ({ uid, response }) => {
+const recordSignupUrlsName = async ({ docId, response }) => {
   const data = {
     updatedAt: Timestamp.now(),
     signupUrlName: response.data.name,
   };
-  // console.log(data);
-  const docRef = db.collection("users").doc(uid);
+  const docRef = db.collection("users").doc(docId);
   const docSnapshot = await docRef.get();
 
   await docRef.update(data);
@@ -29,32 +32,32 @@ const recordSignupUrlsName = async ({ uid, response }) => {
   return { nextData, prevData };
 };
 
-const generateDetailLog = ({ uid, response, nextData, prevData, error }) => {
-  return {
-    collectionName: "users",
-    docId: uid,
-    actionName: "signupUrlsCreate",
-    nextData,
-    prevData,
-    signupUrlName: response ? response.data.name : null,
-    error,
-  };
-};
-
 module.exports = async (req, res, next) => {
   try {
-    const uid = req.body.uid;
+    console.log("TEST")
+    const docId = req.body.uid;
     const authClient = await generateAuthClient();
     const response = await generateResponse(authClient);
     const { nextData, prevData } = await recordSignupUrlsName({
-      uid,
+      docId,
       response,
     });
-    req.detailLogs = [generateDetailLog({ uid, response, nextData, prevData })];
-    res.json(response.data);
+    const actionName = "signupUrlsCreate";
+    const collectionName = "users";
+    const detailLog = generateDetailLog({ actionName , collectionName , docId , nextData , prevData });
+    req.detailLogs = [detailLog];
+    // res.json(response.data);
+    console.log("TEST2")
+    // res.json(response.data);?
+
+    res.json({ success: true, data: response.data, message: "" });
+
   } catch (error) {
-    res.status(500).json({ error });
+    // res.status(500).json({ error });
+    res.status(500).json({ success: false, data: error, message: "内部サーバーエラーが発生しました。" });
+
     req.detailLogs = [generateDetailLog({ error })];
+    console.log(error)
   } finally {
     next();
   }

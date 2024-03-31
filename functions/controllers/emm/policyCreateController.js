@@ -4,13 +4,14 @@ const androidManagement = google.androidmanagement("v1");
 const admin = require("firebase-admin");
 const db = admin.firestore();
 const { generateAuthClient } = require("./emmUtils");
+const { generateDetailLog } = require('../../utils/logUtils');
 
 const generateResponse = async ({ authClient, enterpriseId, policyName }) => {
   google.options({ auth: authClient });
   const res = await androidManagement.enterprises.policies.patch({
-    name: `${enterpriseId}/policies/${policyName}`,
+    name: `enterprises/${enterpriseId}/policies/${policyName}`,
     requestBody: {
-      cameraDisabled: false,
+      // cameraDisabled: false,
       bluetoothDisabled: true,
       playStoreMode: "BLACKLIST",
       modifyAccountsDisabled: false,
@@ -30,65 +31,53 @@ const generateEnrollmentTokens = async ({
   policyName,
 }) => {
   google.options({ auth: authClient });
-  console.log("policyName", `${enterpriseId}/policies/${policyName}`);
+  // console.log("policyName", `enterprises/${enterpriseId}/policies/${policyName}`);
   // https://developers.google.com/android/management/reference/rest/v1/enterprises.enrollmentTokens?hl=ja
   const res = await androidManagement.enterprises.enrollmentTokens.create({
-    parent: enterpriseId,
+    parent: `enterprises/${enterpriseId}`,
     requestBody: {
-      policyName: `${enterpriseId}/policies/${policyName}`,
+      policyName: `enterprises/${enterpriseId}/policies/${policyName}`,
       oneTimeOnly: false,
       allowPersonalUsage: "ALLOW_PERSONAL_USAGE_UNSPECIFIED",
       qrCode: "123",
     },
   });
-
   return res;
 };
 
 const recordPolicyCreate = async ({
-  uid,
+  docId,
   enterpriseId,
   policyName,
   response,
 }) => {
   const data = {
-    uid,
+    docId,
     updatedAt: Timestamp.now(),
     policy: response.data.name,
   };
-  // enterprisesIdからID部分を抽出
-  const docId = enterpriseId.split("/")[1];
   // console.log(data);
   const docRef = db
     .collection("polices")
-    .doc(docId)
+    .doc(enterpriseId)
     .collection("policyList")
     .doc(policyName);
+
   // const docSnapshot = await docRef.get();
-
-  await docRef.set(response.data);
-
-  const nextData = data;
   // const prevData = docSnapshot.data();
   const prevData = null;
-  return { nextData, prevData };
-};
 
-const generateDetailLog = ({ uid, response, nextData, prevData, error }) => {
-  return {
-    collectionName: "users",
-    docId: uid,
-    actionName: "policyCreate",
-    nextData,
-    prevData,
-    error,
-  };
+  await docRef.set(response.data);
+  const nextData = data;
+  return { nextData, prevData };
 };
 
 exports.policyCreate = async (req, res, next) => {
   try {
-    const { uid, enterpriseId } = req.body;
-    console.log(req.body);
+    const { uid: docId } = req.body;
+    let { enterpriseId } = req.body;
+    // enterprisesIdからID部分を抽出　ex)'enterprises/LC038hydn8' ⇒　'LC038hydn8'
+    enterpriseId = enterpriseId.split("/")[1];
     const policyName = "policy1";
     const authClient = await generateAuthClient();
     const response = await generateResponse({
@@ -96,14 +85,15 @@ exports.policyCreate = async (req, res, next) => {
       enterpriseId,
       policyName,
     });
-    const response1 = await generateEnrollmentTokens({
+    // console.log("response",response);
+    const EnrollmentToken = await generateEnrollmentTokens({
       authClient,
       enterpriseId,
       policyName,
     });
 
-    // レスポンスの qrCode フィールドをオブジェクトに変換（パース）
-    let qrCodeObj = JSON.parse(response1.data.qrCode);
+    // レスポンスの qrCode フィールドをオブジェクトに変換
+    let qrCodeObj = JSON.parse(EnrollmentToken.data.qrCode);
 
     // 新たなプロパティを追加
     qrCodeObj[
@@ -111,22 +101,26 @@ exports.policyCreate = async (req, res, next) => {
     ] = true;
 
     // オブジェクトを文字列に戻す（文字列化）
-    response1.data.qrCode = JSON.stringify(qrCodeObj);
+    EnrollmentToken.data.qrCode = JSON.stringify(qrCodeObj);
 
-    console.log("response1.data", response1.data);
+    // console.log("EnrollmentToken.data", EnrollmentToken.data);
+    // res.json(EnrollmentToken.data);
+    res.json({ success: true, data: EnrollmentToken.data, message: "ポリシーの作成に成功しました。" });
 
-    res.json(response1.data);
     const { nextData, prevData } = await recordPolicyCreate({
-      uid,
+      docId,
       enterpriseId,
       policyName,
       response,
     });
-
-    req.detailLogs = [generateDetailLog({ uid, response, nextData, prevData })];
+    const actionName = "policyCreate";
+    const collectionName = "users";
+    const detailLog = generateDetailLog({ actionName , collectionName , docId , nextData , prevData });
+    req.detailLogs = [detailLog];
   } catch (error) {
-    res.status(500).json({ error });
+    res.status(500).json({ success: false, data: error, message: "内部サーバーエラーが発生しました。" });
     req.detailLogs = [generateDetailLog({ error })];
+    // console.log(error)
   } finally {
     next();
   }

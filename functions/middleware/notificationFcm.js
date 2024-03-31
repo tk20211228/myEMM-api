@@ -1,7 +1,8 @@
 const admin = require("firebase-admin");
 const { getFsBoolDocs } = require("../models/firestoreModel");
+const { generateDetailLog } = require('../utils/logUtils');
 const collectionName = "fcmTokens";
-
+const actionName = "notification";
 
 exports.announcementNotification = async (req,createdAnnouncement) => {
   try {
@@ -9,7 +10,8 @@ exports.announcementNotification = async (req,createdAnnouncement) => {
       title : createdAnnouncement.title,
       body : createdAnnouncement.body,
       url: "/information",
-      uid : createdAnnouncement.uid,
+      // uid : createdAnnouncement.uid,
+      author : createdAnnouncement.author,
     }
     const fcmList = [];
     
@@ -25,8 +27,6 @@ exports.announcementNotification = async (req,createdAnnouncement) => {
       data,
     }));
 
-    // console.log(messages);
-
     admin
       .messaging()
       .sendEach(messages)
@@ -34,27 +34,15 @@ exports.announcementNotification = async (req,createdAnnouncement) => {
         // console.log(response)
       })
       .catch((error) => {
-        console.log("error", error);
+        // console.log("error", error);
       });
-
-      const detailLog = {
-        collectionName,
-        docId: !(fcmList.length === 0) ? fcmList : null,
-        actionName: "notification",
-        nextData: postData ? postData : null,
-        uid : createdAnnouncement.uid,
-      };
+      
+      const detailLog = generateDetailLog({ actionName , collectionName , fcmList , data });
       req.detailLogs = [...req.detailLogs, detailLog];
 
   } catch (error) {
     console.log("error", error);
-    const detailLog = {
-      collectionName,
-      docId: null,
-      actionName: "notification",
-      error: error ? JSON.stringify(error) : "No errors",
-      nextData: null,
-    };
+    const detailLog = generateDetailLog({ actionName , collectionName , error });
     req.detailLogs = [...req.detailLogs, detailLog];
   } 
 };

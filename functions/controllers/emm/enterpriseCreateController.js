@@ -4,8 +4,11 @@ const androidManagement = google.androidmanagement("v1");
 const admin = require("firebase-admin");
 const db = admin.firestore();
 const { generateAuthClient } = require("./emmUtils");
+const { generateDetailLog } = require('../../utils/logUtils');
+const { domain ,googleEmmProjectId} = require('../../config');
 
-const logUrl = "https://electnoob.tk/resized_image512_1.3_2023_0421_100844.png";
+
+const logUrl =`https://${domain}/resized_image512_1.3_2023_0421_100844.png`;
 const axios = require("axios");
 const crypto = require("crypto");
 
@@ -28,7 +31,7 @@ const generateResponse = async ({
   const res = await androidManagement.enterprises.create({
     // agreementAccepted: true,
     enterpriseToken,
-    projectId: process.env.GOOGLE_EMM_PROJECT_ID,
+    projectId: googleEmmProjectId,
     signupUrlName,
     // Request body metadata
     //　https://developers.google.com/android/management/reference/rest/v1/enterprises?hl=ja#Enterprise
@@ -55,13 +58,13 @@ const generateResponse = async ({
   return res;
 };
 
-const recordEnterpriseID = async ({ uid, response }) => {
+const recordEnterpriseID = async ({ docId, response }) => {
   const data = {
     updatedAt: Timestamp.now(),
     enterpriseId: response.data.name,
   };
   // console.log(data);
-  const docRef = db.collection("users").doc(uid);
+  const docRef = db.collection("users").doc(docId);
   const docSnapshot = await docRef.get();
 
   await docRef.update(data);
@@ -70,20 +73,9 @@ const recordEnterpriseID = async ({ uid, response }) => {
   return { nextData, prevData };
 };
 
-const generateDetailLog = ({ uid, response, nextData, prevData, error }) => {
-  return {
-    collectionName: "users",
-    docId: uid,
-    actionName: "enterpriseCreate",
-    nextData,
-    prevData,
-    error,
-  };
-};
-
 exports.enterpriseCreate = async (req, res, next) => {
   try {
-    const { uid, enterpriseToken, signupUrlName, enterpriseDisplayName } =
+    const {  uid: docId, enterpriseToken, signupUrlName, enterpriseDisplayName } =
       req.body;
     const authClient = await generateAuthClient();
     const response = await generateResponse({
@@ -93,13 +85,16 @@ exports.enterpriseCreate = async (req, res, next) => {
       enterpriseDisplayName,
     });
     const { nextData, prevData } = await recordEnterpriseID({
-      uid,
+      docId,
       response,
     });
-    req.detailLogs = [generateDetailLog({ uid, response, nextData, prevData })];
-    res.json(response.data);
+    const actionName = "enterpriseCreate";
+    const collectionName = "users";
+    const detailLog = generateDetailLog({ actionName , collectionName , docId , nextData , prevData });
+    req.detailLogs = [detailLog];
+    res.json({ success: true, data: response.data, message: "" });
   } catch (error) {
-    res.status(500).json({ error });
+    res.status(500).json({ success: false, data: error, message: "内部サーバーエラーが発生しました。" });
     console.log(error.message);
     req.detailLogs = [generateDetailLog({ error })];
   } finally {
